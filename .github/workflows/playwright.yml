@@ -1,0 +1,55 @@
+name: QA Automation Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Start API
+        run: |
+          cd src/Api
+          dotnet run &
+          sleep 10
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+
+      - name: Install dependencies
+        run: |
+          cd tests/playwright
+          npm ci
+
+      - name: Install Playwright browsers
+        run: |
+          cd tests/playwright
+          npx playwright install chromium --with-deps
+
+      - name: Run tests
+        run: |
+          cd tests/playwright
+          npx playwright test
+
+      - name: Upload report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: tests/playwright/playwright-report/
+          retention-days: 30
