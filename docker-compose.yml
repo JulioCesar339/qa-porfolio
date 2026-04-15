@@ -1,0 +1,10 @@
+services:
+  api:
+    build:
+      context: ./src/Api
+      dockerfile: Dockerfile
+    container_name: qa-portfolio-api
+    ports:
+      - "5023:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
