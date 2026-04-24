@@ -1,9 +1,13 @@
+using Api.Data;
 using Api.Models;
+using Microsoft.EntityFrameworkCore;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddOpenApi();
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 var app = builder.Build();
 
@@ -13,39 +17,38 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
-// Datos en memoria (por ahora sin base de datos)
-var products = new List<Product>
+// Aplicar migraciones y seed automáticamente al iniciar
+using (var scope = app.Services.CreateScope())
 {
-    new Product { Id = 1, Name = "Laptop", Description = "Laptop gamer", Price = 15000, Stock = 10 },
-    new Product { Id = 2, Name = "Mouse", Description = "Mouse inalambrico", Price = 500, Stock = 50 },
-    new Product { Id = 3, Name = "Teclado", Description = "Teclado mecanico", Price = 1200, Stock = 30 }
-};
+    var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    db.Database.Migrate();
+}
 
 // GET /products - Lista todos
-app.MapGet("/products", () =>
+app.MapGet("/products", async (AppDbContext db) =>
 {
-    return Results.Ok(products);
+    return Results.Ok(await db.Products.ToListAsync());
 });
 
 // GET /products/{id} - Obtiene uno
-app.MapGet("/products/{id}", (int id) =>
+app.MapGet("/products/{id}", async (int id, AppDbContext db) =>
 {
-    var product = products.FirstOrDefault(p => p.Id == id);
+    var product = await db.Products.FindAsync(id);
     return product is not null ? Results.Ok(product) : Results.NotFound();
 });
 
 // POST /products - Crea uno nuevo
-app.MapPost("/products", (Product product) =>
+app.MapPost("/products", async (Product product, AppDbContext db) =>
 {
-    product.Id = products.Max(p => p.Id) + 1;
-    products.Add(product);
+    db.Products.Add(product);
+    await db.SaveChangesAsync();
     return Results.Created($"/products/{product.Id}", product);
 });
 
 // PUT /products/{id} - Actualiza uno
-app.MapPut("/products/{id}", (int id, Product updated) =>
+app.MapPut("/products/{id}", async (int id, Product updated, AppDbContext db) =>
 {
-    var product = products.FirstOrDefault(p => p.Id == id);
+    var product = await db.Products.FindAsync(id);
     if (product is null) return Results.NotFound();
 
     product.Name = updated.Name;
@@ -53,16 +56,18 @@ app.MapPut("/products/{id}", (int id, Product updated) =>
     product.Price = updated.Price;
     product.Stock = updated.Stock;
 
+    await db.SaveChangesAsync();
     return Results.Ok(product);
 });
 
 // DELETE /products/{id} - Elimina uno
-app.MapDelete("/products/{id}", (int id) =>
+app.MapDelete("/products/{id}", async (int id, AppDbContext db) =>
 {
-    var product = products.FirstOrDefault(p => p.Id == id);
+    var product = await db.Products.FindAsync(id);
     if (product is null) return Results.NotFound();
 
-    products.Remove(product);
+    db.Products.Remove(product);
+    await db.SaveChangesAsync();
     return Results.NoContent();
 });
 
