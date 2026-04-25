@@ -15,16 +15,10 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup .NET 9
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "9.0.x"
-
-      - name: Start API
+      - name: Start API and Database with Docker Compose
         run: |
-          cd src/Api
-          dotnet run &
-          sleep 10
+          docker compose up --build -d
+          sleep 15
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -53,3 +47,7 @@ jobs:
           name: playwright-report
           path: tests/playwright/playwright-report/
           retention-days: 30
+
+      - name: Stop containers
+        if: always()
+        run: docker compose down
