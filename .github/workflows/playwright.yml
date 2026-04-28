@@ -11,6 +11,15 @@ jobs:
     timeout-minutes: 60
     runs-on: ubuntu-latest
 
+    # Variables de entorno disponibles para todos los pasos
+    # En producción estas vendrían de GitHub Secrets
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: qaportfolio
+      DB_CONNECTION: Host=db;Port=5432;Database=qaportfolio;Username=postgres;Password=postgres
+      ASPNETCORE_ENVIRONMENT: Development
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
