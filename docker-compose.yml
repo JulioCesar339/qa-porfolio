@@ -1,17 +1,26 @@
+# docker-compose.yml
+# Orquesta los contenedores de la aplicación:
+# - db: Base de datos PostgreSQL
+# - api: API REST de .NET 9
+# Las variables de entorno se cargan desde el archivo .env
+
 services:
   db:
     image: postgres:16
     container_name: qa-portfolio-db
+    # Credenciales cargadas desde .env
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: qaportfolio
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
     ports:
       - "5433:5432"
     volumes:
+      # Volumen persistente para que los datos no se pierdan al reiniciar
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      # Verifica que PostgreSQL esté listo antes de arrancar la API
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -24,11 +33,15 @@ services:
     ports:
       - "5023:8080"
     environment:
-      - ASPNETCORE_ENVIRONMENT=Development
-      - ConnectionStrings__DefaultConnection=Host=db;Port=5432;Database=qaportfolio;Username=postgres;Password=postgres
+      # Entorno de la aplicación cargado desde .env
+      - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT}
+      # Cadena de conexión a PostgreSQL cargada desde .env
+      - ConnectionStrings__DefaultConnection=${DB_CONNECTION}
     depends_on:
       db:
+        # La API espera a que PostgreSQL esté healthy antes de arrancar
         condition: service_healthy
 
 volumes:
+  # Volumen nombrado para persistencia de datos de PostgreSQL
   postgres_data:
