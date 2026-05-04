@@ -9,11 +9,9 @@ public class AppDbContext : DbContext
     {
     }
 
-    // Tabla de productos en la base de datos
-    public DbSet<Product> Products => Set<Product>();
-
-    // Tabla de usuarios en la base de datos
-    public DbSet<User> Users => Set<User>();
+    public DbSet<Product> Products => Set<Product>(); // Tabla de productos
+    public DbSet<User> Users => Set<User>();           // Tabla de usuarios
+    public DbSet<Order> Orders => Set<Order>();        // Tabla de órdenes
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -28,6 +26,12 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<User>().HasData(
             new User { Id = 1, Username = "admin", Password = "admin123", Role = "admin" },
             new User { Id = 2, Username = "user", Password = "user123", Role = "user" }
+        );
+
+        // Datos iniciales de órdenes
+        modelBuilder.Entity<Order>().HasData(
+            new Order { Id = 1, UserId = 1, ProductId = 1, Quantity = 1, Total = 15000, Status = "completed", CreatedAt = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc) },
+            new Order { Id = 2, UserId = 2, ProductId = 2, Quantity = 2, Total = 1000, Status = "pending", CreatedAt = new DateTime(2026, 1, 2, 0, 0, 0, DateTimeKind.Utc) }
         );
     }
 }

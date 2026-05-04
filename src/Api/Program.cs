@@ -152,4 +152,101 @@ app.MapDelete("/products/{id}", async (int id, AppDbContext db) =>
     return Results.NoContent();
 }).RequireAuthorization();
 
+// ─── Endpoints de usuarios ───────────────────────────────────────────────────
+
+// GET /users - Lista todos los usuarios (requiere autenticación)
+app.MapGet("/users", async (AppDbContext db) =>
+{
+    return Results.Ok(await db.Users.ToListAsync());
+}).RequireAuthorization();
+
+// GET /users/{id} - Obtiene un usuario por id
+app.MapGet("/users/{id}", async (int id, AppDbContext db) =>
+{
+    var user = await db.Users.FindAsync(id);
+    return user is not null ? Results.Ok(user) : Results.NotFound();
+}).RequireAuthorization();
+
+// POST /users - Crea un usuario nuevo
+app.MapPost("/users", async (User user, AppDbContext db) =>
+{
+    db.Users.Add(user);
+    await db.SaveChangesAsync();
+    return Results.Created($"/users/{user.Id}", user);
+}).RequireAuthorization();
+
+// PUT /users/{id} - Actualiza un usuario
+app.MapPut("/users/{id}", async (int id, User updated, AppDbContext db) =>
+{
+    var user = await db.Users.FindAsync(id);
+    if (user is null) return Results.NotFound();
+
+    user.Username = updated.Username;
+    user.Password = updated.Password;
+    user.Role = updated.Role;
+
+    await db.SaveChangesAsync();
+    return Results.Ok(user);
+}).RequireAuthorization();
+
+// DELETE /users/{id} - Elimina un usuario
+app.MapDelete("/users/{id}", async (int id, AppDbContext db) =>
+{
+    var user = await db.Users.FindAsync(id);
+    if (user is null) return Results.NotFound();
+
+    db.Users.Remove(user);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+}).RequireAuthorization();
+
+// ─── Endpoints de órdenes ────────────────────────────────────────────────────
+
+// GET /orders - Lista todas las órdenes
+app.MapGet("/orders", async (AppDbContext db) =>
+{
+    return Results.Ok(await db.Orders.ToListAsync());
+}).RequireAuthorization();
+
+// GET /orders/{id} - Obtiene una orden por id
+app.MapGet("/orders/{id}", async (int id, AppDbContext db) =>
+{
+    var order = await db.Orders.FindAsync(id);
+    return order is not null ? Results.Ok(order) : Results.NotFound();
+}).RequireAuthorization();
+
+// POST /orders - Crea una orden nueva
+app.MapPost("/orders", async (Order order, AppDbContext db) =>
+{
+    order.CreatedAt = DateTime.UtcNow;
+    db.Orders.Add(order);
+    await db.SaveChangesAsync();
+    return Results.Created($"/orders/{order.Id}", order);
+}).RequireAuthorization();
+
+// PUT /orders/{id} - Actualiza el estado de una orden
+app.MapPut("/orders/{id}", async (int id, Order updated, AppDbContext db) =>
+{
+    var order = await db.Orders.FindAsync(id);
+    if (order is null) return Results.NotFound();
+
+    order.Status = updated.Status;
+    order.Quantity = updated.Quantity;
+    order.Total = updated.Total;
+
+    await db.SaveChangesAsync();
+    return Results.Ok(order);
+}).RequireAuthorization();
+
+// DELETE /orders/{id} - Elimina una orden
+app.MapDelete("/orders/{id}", async (int id, AppDbContext db) =>
+{
+    var order = await db.Orders.FindAsync(id);
+    if (order is null) return Results.NotFound();
+
+    db.Orders.Remove(order);
+    await db.SaveChangesAsync();
+    return Results.NoContent();
+}).RequireAuthorization();
+
 app.Run();
