@@ -1,18 +1,24 @@
 import { test, expect } from '@playwright/test';
 
-// ─── Token compartido para todos los tests ───────────────────────────────────
 let authToken: string;
+let firstProductId: number;  // ID real del primer producto
 
-// Se ejecuta una vez antes de todos los tests — obtiene el token
 test.beforeAll(async ({ request }) => {
+  // Obtiene el token
   const response = await request.post('/auth/login', {
     data: { username: 'admin', password: 'admin123' },
   });
   const body = await response.json();
-  authToken = body.token; // Guarda el token para usarlo en todos los tests
+  authToken = body.token;
+
+  // Obtiene los ids reales de los productos semilla
+  const productsRes = await request.get('/products', {
+    headers: { Authorization: `Bearer ${authToken}` },
+  });
+  const products = await productsRes.json();
+  firstProductId = products[0].id; // ID real del primer producto
 });
 
-// ─── Tests de autenticación ──────────────────────────────────────────────────
 test.describe('Auth API', () => {
 
   test('POST /auth/login - debe retornar token con credenciales válidas', async ({ request }) => {
@@ -21,33 +27,32 @@ test.describe('Auth API', () => {
     });
     expect(response.status()).toBe(200);
     const body = await response.json();
-    expect(body.token).toBeTruthy();     // El token existe
-    expect(body.username).toBe('admin'); // El username es correcto
-    expect(body.role).toBe('admin');     // El rol es correcto
+    expect(body.token).toBeTruthy();
+    expect(body.username).toBe('admin');
+    expect(body.role).toBe('admin');
   });
 
   test('POST /auth/login - debe retornar 401 con credenciales inválidas', async ({ request }) => {
     const response = await request.post('/auth/login', {
       data: { username: 'admin', password: 'wrongpassword' },
     });
-    expect(response.status()).toBe(401); // No autorizado
+    expect(response.status()).toBe(401);
   });
 
   test('GET /products - debe retornar 401 sin token', async ({ request }) => {
     const response = await request.get('/products');
-    expect(response.status()).toBe(401); // Sin token no hay acceso
+    expect(response.status()).toBe(401);
   });
 
 });
 
-// ─── Tests de productos (con autenticación) ──────────────────────────────────
 test.describe('Products API', () => {
 
   test.describe('GET /products', () => {
 
     test('debe retornar status 200', async ({ request }) => {
       const response = await request.get('/products', {
-        headers: { Authorization: `Bearer ${authToken}` }, // Envía el token
+        headers: { Authorization: `Bearer ${authToken}` },
       });
       expect(response.status()).toBe(200);
     });
@@ -86,16 +91,16 @@ test.describe('Products API', () => {
   test.describe('GET /products/:id', () => {
 
     test('debe retornar un producto existente', async ({ request }) => {
-      const response = await request.get('/products/1', {
+      const response = await request.get(`/products/${firstProductId}`, {
         headers: { Authorization: `Bearer ${authToken}` },
       });
       expect(response.status()).toBe(200);
       const body = await response.json();
-      expect(body.id).toBe(1);
+      expect(body.id).toBe(firstProductId);
     });
 
     test('debe retornar 404 si el producto no existe', async ({ request }) => {
-      const response = await request.get('/products/999', {
+      const response = await request.get('/products/999999', {
         headers: { Authorization: `Bearer ${authToken}` },
       });
       expect(response.status()).toBe(404);
@@ -146,7 +151,7 @@ test.describe('Products API', () => {
   test.describe('PUT /products/:id', () => {
 
     test('debe actualizar un producto existente', async ({ request }) => {
-      const response = await request.put('/products/1', {
+      const response = await request.put(`/products/${firstProductId}`, {
         headers: { Authorization: `Bearer ${authToken}` },
         data: { name: 'Laptop Ultra', description: 'Laptop actualizada', price: 20000, stock: 8 },
       });
@@ -154,17 +159,18 @@ test.describe('Products API', () => {
     });
 
     test('debe retornar el producto con los datos actualizados', async ({ request }) => {
-      const response = await request.put('/products/1', {
+      const response = await request.put(`/products/${firstProductId}`, {
         headers: { Authorization: `Bearer ${authToken}` },
         data: { name: 'Laptop Pro Max', description: 'Laptop tope de gama', price: 25000, stock: 3 },
       });
+      expect(response.status()).toBe(200);
       const body = await response.json();
       expect(body.name).toBe('Laptop Pro Max');
       expect(body.price).toBe(25000);
     });
 
     test('debe retornar 404 al actualizar un producto inexistente', async ({ request }) => {
-      const response = await request.put('/products/999', {
+      const response = await request.put('/products/999999', {
         headers: { Authorization: `Bearer ${authToken}` },
         data: { name: 'Fantasma', description: 'No existe', price: 1, stock: 1 },
       });
@@ -175,23 +181,19 @@ test.describe('Products API', () => {
 
   test.describe('DELETE /products/:id', () => {
 
-    test('debe eliminar un producto existente y retornar 204', async ({ request }) => {
-      // Primero crea un producto para eliminarlo
-      const created = await request.post('/products', {
-        headers: { Authorization: `Bearer ${authToken}` },
-        data: { name: 'Producto temporal', description: 'Para eliminar', price: 100, stock: 1 },
-      });
-      const body = await created.json();
-
-      // Luego lo elimina
-      const response = await request.delete(`/products/${body.id}`, {
-        headers: { Authorization: `Bearer ${authToken}` },
-      });
-      expect(response.status()).toBe(204);
-    });
-
-    test('debe retornar 404 al eliminar un producto inexistente', async ({ request }) => {
-      const response = await request.delete('/products/999', {
+test('debe eliminar un producto existente y retornar 204', async ({ request }) => {
+  const created = await request.post('/products', {
+    headers: { Authorization: `Bearer ${authToken}` },
+    data: { name: 'Producto temporal', description: 'Para eliminar', price: 100, stock: 1 },
+  });
+  const body = await created.json();
+  const response = await request.delete(`/products/${body.id}`, {
+    headers: { Authorization: `Bearer ${authToken}` },
+  });
+  expect(response.status()).toBe(204);
+});
+test('debe retornar 404 al eliminar un producto inexistente', async ({ request }) => {
+      const response = await request.delete('/products/999999', {
         headers: { Authorization: `Bearer ${authToken}` },
       });
       expect(response.status()).toBe(404);

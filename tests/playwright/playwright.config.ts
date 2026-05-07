@@ -4,6 +4,7 @@ export default defineConfig({
   testDir: './tests',
   fullyParallel: false,
   retries: 1,                          // Reintenta 1 vez si falla — genera más info de debug
+  globalSetup: './tests/setup/global.setup.ts', // ← Ejecuta este archivo antes de todos los tests
   reporter: [
     ['html', { open: 'never' }],       // Reporte HTML local
     ['list'],                           // Muestra resultados en consola
