@@ -6,13 +6,17 @@ on:
   pull_request:
     branches: [main]
 
+# Permisos necesarios para publicar en GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
 
-    # Variables de entorno disponibles para todos los pasos
-    # En producción estas vendrían de GitHub Secrets
     env:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -49,7 +53,8 @@ jobs:
           cd tests/playwright
           npx playwright test
 
-      - name: Upload report
+      # Sube el reporte como artifact descargable
+      - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
@@ -57,6 +62,27 @@ jobs:
           path: tests/playwright/playwright-report/
           retention-days: 30
 
+      # Prepara el reporte para GitHub Pages
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        if: ${{ !cancelled() }}
+        with:
+          path: tests/playwright/playwright-report/
+
       - name: Stop containers
         if: always()
         run: docker compose down
+
+  # Job separado para publicar en GitHub Pages
+  deploy-report:
+    needs: test # Espera a que terminen los tests
+    runs-on: ubuntu-latest
+    if: ${{ !cancelled() }}
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }} # URL del reporte publicado
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
