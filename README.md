@@ -39,8 +39,10 @@
 | Tests funcionales | 39 |
 | Tiempo de ejecución | < 3 segundos |
 | Cobertura de endpoints | 15 endpoints |
-| Tasa de error bajo carga | 0% con 10 usuarios simultáneos |
-| Tiempo de respuesta promedio | 21ms |
+| Tasa de error bajo carga | 0% con 100 usuarios simultáneos |
+| Requests procesados | 25,580 requests en 2min 20s |
+| Tasa de requests | 180 req/s promedio — pico 323 req/s |
+| P95 response time | 56ms |
 | Pipeline CI/CD | Automático en cada push |
 
 ---
@@ -184,4 +186,4 @@ curl http://localhost:5023/products \
 
 ---
 
-*Desarrollado por Julio César — [GitHub](https://github.com/JulioCesar339)*
+*Desarrollado por Julio César Cabrera Hernández — [GitHub](https://github.com/JulioCesar339)*
