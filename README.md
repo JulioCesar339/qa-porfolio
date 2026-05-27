@@ -5,7 +5,21 @@
 > Suite completa de automatización QA sobre una API REST con autenticación JWT, base de datos PostgreSQL y pipeline CI/CD. Diseñada para demostrar prácticas profesionales de testing en un entorno real.
 
 ---
+## 📸 Evidencias
 
+### Reporte de Playwright — 39 tests en verde
+![Playwright Report](docs/evidences/playwright-report.png)
+
+### Endpoints documentados con Scalar
+![Scalar Endpoints](docs/evidences/scalar-endpoints-products.png)
+
+### GitHub Actions CI/CD en verde
+![GitHub Actions](docs/evidences/github-actions.png)
+
+### Resultados de carga con k6
+![k6 Load Test](docs/evidences/k6-load-test.png)
+
+---
 ## 🎯 Problemas que resuelve
 
 | Problema | Solución implementada |
