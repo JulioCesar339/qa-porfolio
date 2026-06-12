@@ -1,66 +1,63 @@
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 
-// ─── Configuración del test de carga ─────────────────────────────────────────
 export const options = {
   stages: [
-    { duration: '10s', target: 10 },  // Sube gradualmente a 10 usuarios en 10 segundos
-    { duration: '20s', target: 10 },  // Mantiene 10 usuarios por 20 segundos
-    { duration: '10s', target: 0 },   // Baja gradualmente a 0 usuarios en 10 segundos
+    { duration: '30s', target: 50 }, // Sube rápido a 100
+    { duration: '1m', target: 100 }, // Sube a 200 (Zona de peligro)
+    { duration: '30s', target: 30 }, // Sube a 300 (Punto de quiebre)
+    { duration: '20s', target: 0 },   // Bajada rápida
   ],
   thresholds: {
-    http_req_duration: ['p(95)<500'], // El 95% de las peticiones deben responder en menos de 500ms
-    http_req_failed: ['rate<0.01'],   // Menos del 1% de las peticiones deben fallar
+    http_req_duration: ['p(95)<500'],
+    http_req_failed: ['rate<0.01'],
   },
 };
 
 const BASE_URL = 'http://localhost:5023';
 
-// ─── Setup: se ejecuta una vez antes del test ─────────────────────────────────
-export function setup() {
-  // Hace login y obtiene el token para usarlo en los tests
+export default function () {
+  const headers = { 'Content-Type': 'application/json' };
+
+  // 1. Ahora el LOGIN estresa la API en cada iteración
   const loginRes = http.post(
     `${BASE_URL}/auth/login`,
     JSON.stringify({ username: 'admin', password: 'admin123' }),
-    { headers: { 'Content-Type': 'application/json' } }
+    { headers, tags: { name: 'auth_login' } }
   );
 
-  check(loginRes, {
-    'login exitoso': (r) => r.status === 200,  // Verifica que el login fue exitoso
+  const loginPassed = check(loginRes, {
+    'login exitoso': (r) => r.status === 200,
   });
 
-  return { token: loginRes.json('token') };     // Devuelve el token para usarlo en los tests
-}
+  // Si el login falla, no tiene caso continuar esta iteración
+  if (!loginPassed) {
+    sleep(1);
+    return;
+  }
 
-// ─── Test principal: se ejecuta por cada usuario virtual ─────────────────────
-export default function (data) {
-  const headers = {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${data.token}`,  // Usa el token obtenido en setup
+  // Extraemos el token generado dinámicamente
+  const token = loginRes.json('token');
+  const authHeaders = {
+    ...headers,
+    Authorization: `Bearer ${token}`,
   };
 
-  // GET /products — obtiene la lista de productos
-  const productsRes = http.get(`${BASE_URL}/products`, { headers });
+  // 2. Flujo de endpoints con etiquetas para medir cuál se rompe primero
+  const productsRes = http.get(`${BASE_URL}/products`, { headers: authHeaders, tags: { name: 'get_products' } });
   check(productsRes, {
-    'GET /products status 200': (r) => r.status === 200,       // Verifica status
-    'GET /products tiene productos': (r) => r.json().length > 0, // Verifica que hay datos
+    'GET /products status 200': (r) => r.status === 200,
   });
 
-  sleep(0.5); // Espera 0.5 segundos entre peticiones (simula comportamiento humano)
+  sleep(0.3); // Tiempos de espera ligeramente más cortos para presionar más
 
-  // GET /products/1 — obtiene un producto específico
-  const productRes = http.get(`${BASE_URL}/products/1`, { headers });
-  check(productRes, {
-    'GET /products/1 status 200': (r) => r.status === 200,
-  });
+  const productRes = http.get(`${BASE_URL}/products/1`, { headers: authHeaders, tags: { name: 'get_product_id' } });
+  check(productRes, { 'GET /products/1 status 200': (r) => r.status === 200 });
+
+  sleep(0.3);
+
+  const ordersRes = http.get(`${BASE_URL}/orders`, { headers: authHeaders, tags: { name: 'get_orders' } });
+  check(ordersRes, { 'GET /orders status 200': (r) => r.status === 200 });
 
   sleep(0.5);
-
-  // GET /orders — obtiene la lista de órdenes
-  const ordersRes = http.get(`${BASE_URL}/orders`, { headers });
-  check(ordersRes, {
-    'GET /orders status 200': (r) => r.status === 200,
-  });
-
-  sleep(1); // Espera 1 segundo antes de la siguiente iteración
 }
