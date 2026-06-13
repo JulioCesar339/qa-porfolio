@@ -1,12 +1,10 @@
 name: QA Automation Tests
-
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
 
-# Permisos necesarios para publicar en GitHub Pages
 permissions:
   contents: read
   pages: write
@@ -16,7 +14,6 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
-
     env:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
@@ -28,11 +25,6 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Start API and Database with Docker Compose
-        run: |
-          docker compose up --build -d
-          sleep 15
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -43,17 +35,36 @@ jobs:
           cd tests/playwright
           npm ci
 
+      # Cache de Playwright — evita descargar Chrome cada vez
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ hashFiles('tests/playwright/package-lock.json') }}
+
       - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: |
           cd tests/playwright
           npx playwright install chromium --with-deps
+
+      - name: Install Playwright system deps only
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: |
+          cd tests/playwright
+          npx playwright install-deps chromium
+
+      - name: Start API and Database with Docker Compose
+        run: |
+          docker compose up --build -d
+          sleep 20
 
       - name: Run tests
         run: |
           cd tests/playwright
           npx playwright test
 
-      # Sube el reporte como artifact descargable
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
@@ -62,7 +73,6 @@ jobs:
           path: tests/playwright/playwright-report/
           retention-days: 30
 
-      # Prepara el reporte para GitHub Pages
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         if: ${{ !cancelled() }}
@@ -73,15 +83,13 @@ jobs:
         if: always()
         run: docker compose down
 
-  # Job separado para publicar en GitHub Pages
   deploy-report:
-    needs: test # Espera a que terminen los tests
+    needs: test
     runs-on: ubuntu-latest
     if: ${{ !cancelled() }}
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }} # URL del reporte publicado
-
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
