@@ -1,4 +1,5 @@
 name: QA Automation Tests
+
 on:
   push:
     branches: [main]
@@ -14,16 +15,45 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    container:
+      image: mcr.microsoft.com/playwright:v1.50.0-noble
+      options: --user root
+
     env:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: qaportfolio
-      DB_CONNECTION: Host=db;Port=5432;Database=qaportfolio;Username=postgres;Password=postgres
       ASPNETCORE_ENVIRONMENT: Development
+      DB_CONNECTION: Host=db;Port=5432;Database=qaportfolio;Username=postgres;Password=postgres
+
+    services:
+      db:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: qaportfolio
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup .NET 9
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Build and start API
+        run: |
+          cd src/Api
+          dotnet run --no-launch-profile &
+          echo "Esperando que la API levante..."
+          sleep 15
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -34,31 +64,6 @@ jobs:
         run: |
           cd tests/playwright
           npm ci
-
-      # Cache de Playwright — evita descargar Chrome cada vez
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ hashFiles('tests/playwright/package-lock.json') }}
-
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: |
-          cd tests/playwright
-          npx playwright install chromium --with-deps
-
-      - name: Install Playwright system deps only
-        if: steps.playwright-cache.outputs.cache-hit == 'true'
-        run: |
-          cd tests/playwright
-          npx playwright install-deps chromium
-
-      - name: Start API and Database with Docker Compose
-        run: |
-          docker compose up --build -d
-          sleep 20
 
       - name: Run tests
         run: |
@@ -78,10 +83,6 @@ jobs:
         if: ${{ !cancelled() }}
         with:
           path: tests/playwright/playwright-report/
-
-      - name: Stop containers
-        if: always()
-        run: docker compose down
 
   deploy-report:
     needs: test

@@ -6,7 +6,6 @@ on:
   pull_request:
     branches: [main]
 
-# Permisos necesarios para publicar en GitHub Pages
 permissions:
   contents: read
   pages: write
@@ -16,15 +15,45 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    # Imagen que ya tiene Chrome instalado — no necesita descargarlo
+    container:
+      image: mcr.microsoft.com/playwright:v1.50.0-noble
+      options: --user root
+
+    env:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: qaportfolio
+      ASPNETCORE_ENVIRONMENT: Development
+      DB_CONNECTION: Host=db;Port=5432;Database=qaportfolio;Username=postgres;Password=postgres
+
+    services:
+      db:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: qaportfolio
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Start API and Database with Docker Compose
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "9.0.x"
+
+      - name: Build and run API
         run: |
-          docker compose up --build -d
-          sleep 15
+          cd src/Api
+          dotnet run &
+          sleep 10
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -36,17 +65,11 @@ jobs:
           cd tests/playwright
           npm ci
 
-      - name: Install Playwright browsers
-        run: |
-          cd tests/playwright
-          npx playwright install chromium --with-deps
-
       - name: Run tests
         run: |
           cd tests/playwright
           npx playwright test
 
-      # Sube el reporte como artifact descargable
       - name: Upload Playwright report
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
@@ -55,26 +78,19 @@ jobs:
           path: tests/playwright/playwright-report/
           retention-days: 30
 
-      # Prepara el reporte para GitHub Pages
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         if: ${{ !cancelled() }}
         with:
           path: tests/playwright/playwright-report/
 
-      - name: Stop containers
-        if: always()
-        run: docker compose down
-
-  # Job separado para publicar en GitHub Pages
   deploy-report:
-    needs: test # Espera a que terminen los tests
+    needs: test
     runs-on: ubuntu-latest
     if: ${{ !cancelled() }}
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }} # URL del reporte publicado
-
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
