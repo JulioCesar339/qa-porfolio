@@ -24,7 +24,8 @@ jobs:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: qaportfolio
       ASPNETCORE_ENVIRONMENT: Development
-      DB_CONNECTION: Host=db;Port=5432;Database=qaportfolio;Username=postgres;Password=postgres
+      # Formato que .NET lee como ConnectionStrings__DefaultConnection
+      ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=qaportfolio;Username=postgres;Password=postgres
 
     services:
       db:
@@ -48,7 +49,7 @@ jobs:
         with:
           dotnet-version: "9.0.x"
 
-    - name: Build and start API
+      - name: Build and start API
         run: |
           cd src/Api
           dotnet build
@@ -62,6 +63,7 @@ jobs:
             echo "⏳ Intento $i — esperando..."
             sleep 3
           done
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
