@@ -48,12 +48,11 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "9.0.x"
-
-      - name: Build and start API
+- name: Build and start API
         run: |
           cd src/Api
           dotnet build
-          dotnet run --no-launch-profile &
+          ASPNETCORE_URLS="http://localhost:5023" dotnet run &
           echo "Esperando que la API levante..."
           for i in {1..30}; do
             if curl -s http://localhost:5023/products > /dev/null 2>&1; then
