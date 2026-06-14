@@ -15,7 +15,6 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
